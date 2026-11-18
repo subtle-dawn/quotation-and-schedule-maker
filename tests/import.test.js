@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as XLSX from 'xlsx/xlsx.mjs';
+import {importExcel} from '../src/import.js';
+import {schedule} from '../src/engine.js';
+import {csv} from '../src/engine.js';
+function fixture(rows,settings){const b=XLSX.utils.book_new();XLSX.utils.book_append_sheet(b,XLSX.utils.aoa_to_sheet(rows),'見積');if(settings)XLSX.utils.book_append_sheet(b,XLSX.utils.aoa_to_sheet(settings),'単価・設定');return XLSX.write(b,{type:'array',bookType:'xlsx'});}
+test('見積形式から設定と明細を読み込み、元の完了日や金額を再計算',()=>{const data=fixture([['見積'],[],['No.','キャラクター／対象','工程・納品物','制作日','予備日','制作費（円）','予定完了日'],[1,'対象A','立ち絵',2,1,99999,99999]], [['日当（4時間）',10000],['着手日（カレンダー）',46342]]);const {project:p}=importExcel(data,'test.xlsx');const r=schedule(p);assert.equal(p.settings.start,'2026-11-16');assert.equal(p.settings.rate,10000);assert.equal(r.price,20000);assert.equal(r.end,'2026-11-18');assert.equal(p.tasks[0].target,'対象A');});
+test('任意列なし・半日・ゼロ円に対応',()=>{const data=fixture([['作業名','工数'],['工程A',0.5],['工程B',1]],[['日当',0]]);const p=importExcel(data,'test.xlsx').project;assert.equal(p.tasks.length,2);assert.equal(p.tasks[0].buffer,0);assert.equal(schedule(p).price,0);});
+test('数値でない工数や負の工数を拒否し、不明形式も具体的に案内',()=>{assert.throws(()=>importExcel(fixture([['工程','制作日'],['A','不明']]),'test.xlsx'),/数値/);assert.throws(()=>importExcel(fixture([['工程','制作日'],['A',-1]]),'test.xlsx'),/0〜1000/);assert.throws(()=>importExcel(fixture([['商品','数量'],['A',1]]),'test.xlsx'),/見つけられません/);assert.throws(()=>importExcel(fixture([['工程','制作日'],['A','']]),'test.xlsx'),/数値/);});
+test('見積内の命令文は文字列として扱い、ファイルの式を実行しない',()=>{const p=importExcel(fixture([['工程','制作日'],['=1+1 を実行',1]]),'test.xlsx').project;assert.equal(p.tasks[0].name,'=1+1 を実行');assert.equal(p.tasks[0].work,1);});
+test('新しい列名と納品単位を読み込み、CSVの書き出し値を復元できる',()=>{const p=importExcel(fixture([['No.','納品単位','分類','工程','制作日','予備日'],[1,4,'キャラクターA','立ち絵',2,1]]),'test.xlsx').project;assert.equal(p.tasks[0].deliveryUnit,4);assert.equal(p.tasks[0].target,'キャラクターA');assert.equal(schedule(p).price,20000);assert.equal(importExcel(fixture([['工程','制作日'],['A',1]]),'old.xlsx').project.tasks[0].deliveryUnit,1);assert.throws(()=>importExcel(fixture([['工程','制作日','納品単位'],['A',1,-1]]),'test.xlsx'),/納品単位/);});
+test('小計入りCSVを再取り込みしても工程と料金が二重計上されない',()=>{const original=importExcel(fixture([['納品単位','分類','工程','制作日','予備日'],[1,'A','作業A',2,1],[2,'B','作業B',1,0]]),'test.xlsx').project;const result=schedule(original),restored=importExcel(new TextEncoder().encode(csv(result)),'test.csv').project;assert.equal(restored.tasks.length,2);assert.equal(schedule(restored).price,result.price);assert.deepEqual(restored.tasks.map(t=>t.deliveryUnit),[1,2]);});
