@@ -24,7 +24,7 @@ export async function createPdf(p,result,fontBytes,color){
   function header(){let x=M;headers.forEach((h,i)=>{rect(x,y,widths[i],20,paper);text(h,x+3,y+4,8);x+=widths[i];});y+=20;}
   room(38);header();
   rows.forEach((row,rowIndex)=>{
-   if(row.full){if(BOTTOM-y<44){newPage(section);header();}rect(M,y,widths.reduce((a,n)=>a+n,0),20,paper);text(row.full,M+4,y+4,9);y+=20;return;}
+   if(row.full){const totalWidth=widths.reduce((a,n)=>a+n,0),ls=wrap(row.full,totalWidth-8,9),height=Math.max(20,ls.length*12+8);if(BOTTOM-y<height+24){newPage(section);header();}rect(M,y,totalWidth,height,paper);ls.forEach((s,i)=>text(s,M+4,y+4+i*12,9));y+=height;return;}
    const lines=row.map((c,i)=>c&&typeof c==='object'?c.lines.flatMap(item=>wrap(item.text,widths[i]-6,size).map(text=>({...item,text}))):wrap(c,widths[i]-6,size).map(text=>({text})));let offset=0,total=Math.max(...lines.map(a=>a.length));
    while(offset<total){if(BOTTOM-y<Math.max(minHeight,lineHeight+6)){newPage(section);header();}
     const count=Math.max(1,Math.min(total-offset,Math.floor((BOTTOM-y-6)/lineHeight))),height=Math.max(minHeight,count*lineHeight+6);let x=M;
@@ -38,7 +38,7 @@ export async function createPdf(p,result,fontBytes,color){
  const conditions=`着手日 ${label(p.settings.start)}　日当 ${yen(p.settings.rate)}　休業日 ${p.settings.offDays.map(d=>'日月火水木金土'[d]).join('・')||'なし'}　予備日は請求対象外`;
  text(conditions,M,y,8);y+=17;
  const contentWidth=W-M*2,proportions=[.035,.15,.305,.05,.05,.06,.11,.12,.12];
- let taskNumber=0;const estimateRows=deliveryGroups(result.tasks).flatMap(g=>[{full:`納品単位 ${g.unit}`},...g.tasks.map(t=>[++taskNumber,t.target,t.name,t.work,t.buffer,Math.round((t.work+t.buffer)*100)/100,yen(t.price),label(t.start),label(t.end)]),['','','小計',g.work,g.buffer,g.plan,yen(g.price),label(g.start),label(g.end)]]);
+ let taskNumber=0;const estimateRows=deliveryGroups(result.tasks).flatMap(g=>[{full:`納品単位 ${g.unit}${g.title?'　'+g.title:''}`},...g.tasks.map(t=>[++taskNumber,t.target,t.name,t.work,t.buffer,Math.round((t.work+t.buffer)*100)/100,yen(t.price),label(t.start),label(t.end)]),['','','小計',g.work,g.buffer,g.plan,yen(g.price),label(g.start),label(g.end)]]);
  table(['No.','分類','工程','制作日','予備日','計画日数','制作費','予定開始','予定完了'],[...estimateRows,['','','合計',result.work,result.buffer,Math.round((result.work+result.buffer)*100)/100,yen(result.price),'',label(result.end)]],proportions.map(n=>n*contentWidth),{fills:(r)=>estimateRows[r]?.[0]===''||r===estimateRows.length?paper:undefined});
  newPage('カレンダー');
  const byDay=new Map(),byId=new Map(result.tasks.map(t=>[t.id,t]));

@@ -6,9 +6,9 @@ export function isOff(s,settings){return settings.offDays.includes(date(s).getDa
 export function deliveryGroups(tasks){
  const groups=new Map();
  for(const t of tasks){const unit=t.deliveryUnit??1;if(!groups.has(unit))groups.set(unit,{unit,tasks:[],work:0,buffer:0,price:0,start:null,end:null});const g=groups.get(unit);g.tasks.push(t);g.work+=t.work;g.buffer+=t.buffer;g.price+=t.price??0;if(t.start&&(!g.start||t.start<g.start))g.start=t.start;if(t.end&&(!g.end||t.end>g.end))g.end=t.end;}
- return [...groups.values()].map(g=>({...g,plan:Math.round((g.work+g.buffer)*100)/100}));
+ return [...groups.values()].map(g=>({...g,title:g.tasks.find(t=>t.unitTitle)?.unitTitle||'',plan:Math.round((g.work+g.buffer)*100)/100}));
 }
-export function normalizeDeliveryUnits(tasks){return deliveryGroups(tasks).flatMap((g,i)=>g.tasks.map(t=>({...t,deliveryUnit:i+1})));}
+export function normalizeDeliveryUnits(tasks){return deliveryGroups(tasks).flatMap((g,i)=>g.tasks.map(t=>({...t,deliveryUnit:i+1,unitTitle:g.title})));}
 export function reorderTasks(tasks,sourceId,targetId,after=false){
  const source=tasks.find(t=>t.id===sourceId);
  if(!source||sourceId===targetId||!tasks.some(t=>t.id===targetId))return tasks;
@@ -24,7 +24,7 @@ export function validate(p){
  p.settings.holidays.forEach(date);
  if(p.tasks.length>500)throw Error('工程数は500件までです。');
  const ids=new Set();let total=0;
- for(const t of p.tasks){if(typeof t.id!=='string'||ids.has(t.id)||['name','target','category','request'].some(k=>typeof t[k]!=='string'))throw Error('工程データが正しくありません。');if(t.deliveryUnit!==undefined&&(!Number.isSafeInteger(t.deliveryUnit)||t.deliveryUnit<0))throw Error('納品単位は0以上の整数で入力してください。');ids.add(t.id);for(const k of ['work','buffer']){if(!Number.isFinite(t[k])||t[k]<0||t[k]>1000)throw Error('日数は0〜1000の数値で入力してください。');total+=t[k];}}
+ for(const t of p.tasks){if(typeof t.id!=='string'||ids.has(t.id)||['name','target','category','request'].some(k=>typeof t[k]!=='string'))throw Error('工程データが正しくありません。');if(t.deliveryUnit!==undefined&&(!Number.isSafeInteger(t.deliveryUnit)||t.deliveryUnit<0))throw Error('納品単位は0以上の整数で入力してください。');if(t.unitTitle!==undefined&&(typeof t.unitTitle!=='string'||t.unitTitle.length>200))throw Error('納品単位のタイトルは200文字以内で入力してください。');ids.add(t.id);for(const k of ['work','buffer']){if(!Number.isFinite(t[k])||t[k]<0||t[k]>1000)throw Error('日数は0〜1000の数値で入力してください。');total+=t[k];}}
  if(total>5000)throw Error('計画日数は合計5000日以内にしてください。');
  return p;
 }
@@ -43,4 +43,4 @@ export function ics(p,result){
  // RFC 5545: fold content lines at 75 UTF-8 octets.
  return lines.flatMap(line=>{const out=[];let part='',size=0;for(const c of line){const n=new TextEncoder().encode(c).length;if(size+n>75){out.push(part);part=' ';size=1;}part+=c;size+=n;}out.push(part);return out;}).join('\r\n')+'\r\n';
 }
-export function csv(result){let n=0;const rows=[['No.','納品単位','分類','工程','制作日','予備日','計画日数','制作費（円）','予定開始日','予定完了日'],...deliveryGroups(result.tasks).flatMap(g=>[...g.tasks.map(t=>[++n,g.unit,t.target,t.name,t.work,t.buffer,t.work+t.buffer,t.price,t.start||'',t.end||'']),['',g.unit,'小計','',g.work,g.buffer,g.plan,g.price,g.start||'',g.end||'']])];return '\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"').join(',')).join('\r\n');}
+export function csv(result){let n=0;const rows=[['No.','納品単位','分類','工程','制作日','予備日','計画日数','制作費（円）','予定開始日','予定完了日','納品単位タイトル'],...deliveryGroups(result.tasks).flatMap(g=>[...g.tasks.map(t=>[++n,g.unit,t.target,t.name,t.work,t.buffer,t.work+t.buffer,t.price,t.start||'',t.end||'',g.title]),['',g.unit,'小計','',g.work,g.buffer,g.plan,g.price,g.start||'',g.end||'',g.title]])];return '\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"').join(',')).join('\r\n');}
