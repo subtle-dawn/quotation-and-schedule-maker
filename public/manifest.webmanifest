@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "見積・スケジュールメーカー",
+  "short_name": "見積・予定",
+  "description": "見積と制作スケジュールをまとめて管理。カレンダー・ガントチャート・PDF出力に対応。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#536b50",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

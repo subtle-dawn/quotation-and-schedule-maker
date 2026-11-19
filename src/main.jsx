@@ -1,4 +1,5 @@
 import React,{useState,useMemo,useEffect,useRef} from 'react';
+import './pwa.js';
 import {createRoot} from 'react-dom/client';
 import {flushSync} from 'react-dom';
 import PrintReport from './PrintReport.jsx';
